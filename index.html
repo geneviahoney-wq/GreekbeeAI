@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Μελισσοκομικός Σύμβουλος v133</title>
+<style>
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#1e1e1e;color:#ffffff;display:flex;height:100vh}
+.sidebar{width:220px;background:#111;color:#fff;display:flex;flex-direction:column;padding:10px}
+.sidebar h3{margin-top:0;color:#d4af37}
+.sidebar ul{list-style:none;padding:0;margin:0;flex:1;overflow-y:auto}
+.sidebar li{padding:8px;border-bottom:1px solid #333;cursor:pointer}
+.sidebar li:hover{background:#222}
+.main{flex:1;display:flex;flex-direction:column}
+.header{padding:12px;text-align:center;font-size:20px;font-weight:bold;position:relative;background:#2a2a2a}
+.header .bee{position:absolute;left:10px;top:10px;font-size:20px}
+.chat{flex:1;overflow-y:auto;padding:20px;background:#1e1e1e}
+.message{max-width:78%;padding:14px;border-radius:12px;margin:6px 0;line-height:1.5;white-space:pre-wrap}
+.user{align-self:flex-end;background:#444;color:#fff;border:1px solid #666}
+.bot{align-self:flex-start;background:#1f1f1f;color:#fff;border:1px solid #555}
+.footer{padding:10px;text-align:center;font-size:14px;color:#aaa;background:#111}
+.input-area{display:flex;padding:12px;background:#111}
+.input{flex:1;padding:10px;border-radius:10px;border:1px solid #555;background:#2a2a2a;color:#fff}
+.btn{background:#444;border:none;padding:10px 12px;border-radius:10px;color:#fff;font-weight:700;cursor:pointer;margin-left:6px}
+.btn:hover{background:#d4af37;color:#000}
+#settingsBtn{position:absolute;right:10px;top:10px;background:#444;color:#fff;border:none;padding:6px 10px;border-radius:8px;cursor:pointer}
+#settingsBtn:hover{background:#d4af37;color:#000}
+#settingsModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center}
+#settingsContent{background:#2a2a2a;padding:20px;border-radius:12px;width:300px}
+#settingsContent input, #settingsContent select{width:100%;padding:8px;margin:6px 0;border-radius:8px;border:1px solid #555;background:#1e1e1e;color:#fff}
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <h3>Πρόσφατα</h3>
+  <ul id="recentList"></ul>
+</div>
+<div class="main">
+  <div class="header">
+    <span class="bee">🐝</span>Μελισσοκομικός Σύμβουλος
+    <button id="settingsBtn">Ρυθμίσεις</button>
+  </div>
+  <div id="chat" class="chat"></div>
+  <div class="input-area">
+    <input id="userInput" class="input" placeholder="Ρώτησε οτιδήποτε για μελισσοκομία..."/>
+    <button onclick="send()" class="btn">Στείλε</button>
+  </div>
+  <div class="footer">Μελισσοκομικός Σύμβουλος – ✍️ Αθανάσιος Γεροντάκης</div>
+</div>
+
+<div id="settingsModal">
+  <div id="settingsContent">
+    <h3>Ρυθμίσεις API</h3>
+    <label>Provider:</label>
+    <select id="providerSelect">
+      <option value="openai">OpenAI</option>
+      <option value="groq">Groq</option>
+    </select>
+    <label>API Key:</label>
+    <input id="apiKeyInput" type="text" placeholder="sk-... ή gsk_..."/>
+    <button onclick="saveSettings()" class="btn">Αποθήκευση</button>
+  </div>
+</div>
+
+<script>
+document.getElementById("settingsBtn").onclick=function(){
+  document.getElementById("settingsModal").style.display="flex";
+  document.getElementById("providerSelect").value=localStorage.getItem("provider")||"openai";
+  document.getElementById("apiKeyInput").value=localStorage.getItem("api_key")||"";
+};
+function saveSettings(){
+  localStorage.setItem("provider",document.getElementById("providerSelect").value);
+  localStorage.setItem("api_key",document.getElementById("api_key").value.trim());
+  document.getElementById("settingsModal").style.display="none";
+}
+async function send(){
+  const input=document.getElementById("userInput");
+  const text=input.value.trim();
+  if(!text) return;
+  addMessage(text,"user");
+  input.value="";
+  addRecent(text);
+  addMessage("⏳ Γίνεται ανάλυση...","bot");
+  try{
+    const provider=localStorage.getItem("provider");
+    const apiKey=localStorage.getItem("api_key");
+    if(!provider||!apiKey){
+      addMessage("⚠️ Ρύθμισε πρώτα Provider και API Key.","bot");
+      return;
+    }
+    let url="https://api.openai.com/v1/chat/completions";
+    if(provider==="groq"){
+      url="https://api.groq.com/openai/v1/chat/completions";
+    }
+    const resp=await fetch(url,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
+      body:JSON.stringify({
+        model:"gpt-4o-mini",
+        messages:[
+          {role:"system",content:"Είσαι ειδικός μελισσοκομίας. Δίνεις πάντα μεγάλες, αναλυτικές απαντήσεις στα ελληνικά, σαν δάσκαλος."},
+          {role:"user",content:text}
+        ],
+        max_tokens:800
+      })
+    });
+    const data=await resp.json();
+    const answer=data.choices?.[0]?.message?.content||"Δεν βρέθηκε απάντηση";
+    addMessage(answer,"bot");
+  }catch(e){
+    addMessage("⚠️ Σφάλμα: "+e.message,"bot");
+  }
+}
+function addMessage(text,cls){
+  const div=document.createElement("div");
+  div.className="message "+cls;
+  div.innerText=text;
+  document.getElementById("chat").appendChild(div);
+  div.scrollIntoView();
+}
+function addRecent(q){
+  let list=document.getElementById("recentList");
+  let li=document.createElement("li");
+  li.innerText=q;
+  li.onclick=function(){document.getElementById("userInput").value=q;};
+  list.insertBefore(li,list.firstChild);
+}
+</script>
+</body>
+</html>
