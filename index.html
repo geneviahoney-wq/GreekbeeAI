@@ -70,7 +70,7 @@ document.getElementById("settingsBtn").onclick=function(){
 };
 function saveSettings(){
   localStorage.setItem("provider",document.getElementById("providerSelect").value);
-  localStorage.setItem("api_key",document.getElementById("api_key").value.trim());
+  localStorage.setItem("api_key",document.getElementById("apiKeyInput").value.trim());
   document.getElementById("settingsModal").style.display="none";
 }
 async function send(){
